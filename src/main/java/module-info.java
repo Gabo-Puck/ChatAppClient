@@ -6,4 +6,7 @@ module com.azureproject.chatclient {
 
     exports com.azureproject.chatclient;
     exports com.azureproject.SharedInterfaces;
+    exports com.azureproject.SharedModels;
+    exports com.azureproject.chatclient.Models;
+
 }

@@ -8,10 +8,14 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.URL;
 import java.util.ResourceBundle;
+import java.util.concurrent.CountDownLatch;
 
 import com.azureproject.SharedModels.AppMessage;
 import com.azureproject.SharedModels.LoginData;
+import com.azureproject.chatclient.Models.Response;
 
+import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Button;
@@ -19,6 +23,30 @@ import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 
 public class LoginController implements Initializable {
+
+    private final class TaskExtension extends Task<Object> {
+        private final AppMessage message;
+        Boolean isError;
+        CountDownLatch latch;
+
+        private TaskExtension(AppMessage message, Boolean isError, CountDownLatch latch) {
+            this.message = message;
+            this.isError = isError;
+            this.latch = latch;
+        }
+
+        @Override
+        protected Void call() {
+            try {
+                OutputWorker.output.writeObject(message);
+            } catch (IOException e) {
+                isError = true;
+                this.latch.countDown();
+            }
+            return null;
+        }
+    }
+
     public Button loginButton;
     public TextField usernameField;
     public PasswordField passwordField;
@@ -29,30 +57,59 @@ public class LoginController implements Initializable {
 
     @FXML
     private void loginAttempt() throws IOException {
-        new Thread(() -> {
-            try {
-                Socket s = new Socket("localhost", 76);
-                ObjectOutputStream is = new ObjectOutputStream(s.getOutputStream());
-                is.flush();
-                ObjectInputStream es = new ObjectInputStream(s.getInputStream());
-                InputWorker w = new InputWorker(es);
-                OutputWorker w2 = new OutputWorker(is);
-                Thread t = new Thread(w);
-                Thread t2 = new Thread(w2);
-                t.start();
-                t2.start();
-                AppMessage message;
-                LoginData data;
+        new Thread(new Task<Void>() {
 
-                String username = usernameField.getText();
-                String password = passwordField.getText();
+            @Override
+            protected Void call() throws Exception {
+                try {
+                    AppMessage message;
+                    LoginData data;
 
-            } catch (IOException e) {
+                    String username = usernameField.getText();
+                    String password = passwordField.getText();
 
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+                    data = new LoginData(username, password, "");
+                    message = new AppMessage("LoginAttempt", data, 0);
+                    CountDownLatch latch = new CountDownLatch(1);
+                    Boolean isError = false;
+                    System.out.println("Adding task to OutputWorker queue");
+                    OutputWorker.queue.put(new TaskExtension(message, isError, latch));
+                    System.out.println("Creatin response");
+                    Response responseResult = new Response(latch, message);
+                    System.out.println("Adding responseResult to ResponseList");
+                    InputWorker.addResponseWait(responseResult);
+                    System.out.println("Waiting for response to finish ...");
+                    latch.await();
+                    if (isError) {
+                        System.out.println("THERE IS AN ERROR");
+
+                    }
+                    System.out.println("Getting response data");
+                    AppMessage response = responseResult.getResponseData();
+                    System.out.println("parsing stuff");
+                    LoginData responseData = (LoginData) response.getDataMessage();
+
+                    if ("ok".equals(responseData.getMessage())) {
+                        System.out.println("YESS");
+                        Platform.runLater(() -> {
+                            try {
+                                App.setRoot("mainView");
+                            } catch (IOException e) {
+                                // TODO Auto-generated catch block
+                                e.printStackTrace();
+                            }
+                        });
+                    }
+
+                } catch (InterruptedException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+                return null;
             }
-        }).start();
+
+        }).run();
+
     }
 
     @Override

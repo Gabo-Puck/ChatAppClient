@@ -19,6 +19,16 @@ public class App extends Application {
     @Override
     public void start(Stage stage) throws IOException {
         scene = new Scene(loadFXML("primary"), 640, 480);
+        stage.setOnCloseRequest(arg0 -> {
+            System.out.println("Closinnnn");
+            try {
+                OutputWorker.output.close();
+                OutputWorker.th.cancel();
+            } catch (IOException | NullPointerException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        });
         stage.setScene(scene);
         stage.show();
 
