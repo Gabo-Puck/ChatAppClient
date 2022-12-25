@@ -5,25 +5,92 @@ import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 
+import com.azureproject.SharedEnum.EnumActions;
 import com.azureproject.SharedModels.AppMessage;
+import com.azureproject.SharedModels.Message;
+import com.azureproject.SharedModels.User;
 import com.azureproject.chatclient.Models.Response;
+import com.azureproject.servicesgui.ListPrinter;
+import com.azureproject.servicesgui.ListRemover;
 
 import javafx.concurrent.Task;
+import javafx.scene.control.ListView;
 
 public class InputWorker extends Task<Void> {
 
     ObjectInputStream input;
     BlockingQueue<Task<Void>> queue;
     public static ConcurrentHashMap<Integer, Response> responseList = new ConcurrentHashMap<>();
+    // Queue for modifying gui
+    public BlockingQueue<String> queuePrintUserList = new LinkedBlockingQueue<>();
+    public BlockingQueue<String> queueRemoveUserList = new LinkedBlockingQueue<>();
+
+    public BlockingQueue<String> queuePrintMessagesSent = new LinkedBlockingQueue<>();
+    public BlockingQueue<String> queueRemoveMessagesSent = new LinkedBlockingQueue<>();
+    // References to elements in interface
+    public ListView<String> chatListView;
+    public ListView<String> messageListView;
+    // Printer element that handles changes
+    public ListPrinter<String> chatListPrinter;
+    public ListPrinter<String> chatMessagePrinter;
+
+    public ListRemover<String, String> chatMessageRemover;
+    public ListRemover<String, String> chatListRemove;
+
+    public String activeChat;
+
+    public String getActiveChat() {
+        return activeChat;
+    }
+
+    public void setActiveChat(String activeChat) {
+        this.activeChat = activeChat;
+    }
+
+    public static InputWorker worker;
+    // public static BlockingQueue<String> queueRemoveUserList = new
+    // LinkedBlockingQueue<>();
+    // public static BlockingQueue<String> queuePrintServerLogs = new
+    // LinkedBlockingQueue<>();
+    // public static BlockingQueue<String> queuePrintCountUsers = new
+    // LinkedBlockingQueue<>();
+
+    public ListView<String> getChatListView() {
+        return chatListView;
+    }
+
+    public void setChatListView(ListView<String> chatListView) {
+        chatListPrinter = new ListPrinter<>(chatListView, queuePrintUserList);
+        chatListRemove = new ListRemover<>(chatListView, queueRemoveUserList);
+        new Thread(chatListPrinter).start();
+        new Thread(chatListRemove).start();
+        this.chatListView = chatListView;
+    }
+
+    public ListView<String> getMessageListView() {
+        return messageListView;
+    }
+
+    public void setMessageListView(ListView<String> messageListView) {
+        chatMessagePrinter = new ListPrinter<>(messageListView, queuePrintMessagesSent);
+        new Thread(chatMessagePrinter).start();
+        this.messageListView = messageListView;
+    }
 
     public InputWorker(ObjectInputStream input) {
         this.input = input;
     }
 
+    public InputWorker() {
+    }
+
     @Override
     protected Void call() throws Exception {
         System.out.println("Login stuff");
+
+        new Thread(chatListPrinter).start();
         while (true) {
             try {
                 System.out.println("reading stuff");
@@ -33,12 +100,33 @@ public class InputWorker extends Task<Void> {
                 new Thread(new Task<Void>() {
                     @Override
                     protected Void call() {
-                        String action = a.getAction();
-                        switch (action) {
-                            case "LoginAttempt":
+                        EnumActions action = a.getAction();
+                        switch (EnumActions.toAction(action)) {
+                            case LOGIN_ATTEMPT:
+                            case GET_MAIN_SCREEN_DATA:
+                            case GET_CHAT_DATA:
                                 fetchResponse(a);
                                 break;
-
+                            case NEW_MESSAGE_PEER:
+                                Message newMessage = (Message) a.getDataMessage();
+                                String messagePrint = newMessage.getFrom().getUsername().concat(": ")
+                                        .concat(newMessage.getContent());
+                                System.out.println("chat reciever 1:" + newMessage.getChatReciever().getName());
+                                System.out.println("chat reciever 2:"
+                                        + newMessage.getFrom().getUsername());
+                                if (activeChat.equals(newMessage.getChatReciever().getName())
+                                        || activeChat.equals(newMessage.getFrom().getUsername())) {
+                                    chatMessagePrinter.queue.add(messagePrint);
+                                }
+                                break;
+                            case NEW_USER:
+                                User newUser = (User) a.getDataMessage();
+                                chatListPrinter.queue.add(newUser.getUsername());
+                                break;
+                            case LOG_OUT:
+                                User userDisconnected = (User) a.getDataMessage();
+                                chatListRemove.queue.add(userDisconnected.getUsername());
+                                break;
                             default:
                                 break;
                         }

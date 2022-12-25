@@ -1,4 +1,5 @@
 module com.azureproject.chatclient {
+
     requires transitive javafx.controls;
     requires javafx.fxml;
 

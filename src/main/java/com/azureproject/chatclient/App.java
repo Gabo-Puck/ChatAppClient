@@ -9,12 +9,23 @@ import javafx.scene.layout.HBox;
 
 import java.io.IOException;
 
+import com.azureproject.SharedModels.User;
+
 /**
  * JavaFX App
  */
 public class App extends Application {
 
     private static Scene scene;
+    private static User userSession;
+
+    public static User getUserSession() {
+        return userSession;
+    }
+
+    public static void setUserSession(User userSession) {
+        App.userSession = userSession;
+    }
 
     @Override
     public void start(Stage stage) throws IOException {
@@ -24,6 +35,9 @@ public class App extends Application {
             try {
                 OutputWorker.output.close();
                 OutputWorker.th.cancel();
+                InputWorker.worker.chatListPrinter.cancel();
+                InputWorker.worker.chatListRemove.cancel();
+                InputWorker.worker.chatMessagePrinter.cancel();
             } catch (IOException | NullPointerException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
@@ -38,7 +52,7 @@ public class App extends Application {
         scene.setRoot(loadFXML(fxml));
     }
 
-    private static Parent loadFXML(String fxml) throws IOException {
+    public static Parent loadFXML(String fxml) throws IOException {
         FXMLLoader fxmlLoader = new FXMLLoader(App.class.getResource(fxml + ".fxml"));
         return fxmlLoader.load();
     }

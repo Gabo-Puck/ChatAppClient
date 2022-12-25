@@ -2,17 +2,16 @@ package com.azureproject.chatclient;
 
 import javafx.fxml.Initializable;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.net.Socket;
-import java.net.SocketAddress;
+import java.util.ArrayList;
 import java.net.URL;
 import java.util.ResourceBundle;
 import java.util.concurrent.CountDownLatch;
 
 import com.azureproject.SharedModels.AppMessage;
 import com.azureproject.SharedModels.LoginData;
+import com.azureproject.SharedModels.User;
 import com.azureproject.chatclient.Models.Response;
+import com.azureproject.SharedEnum.EnumActions;
 
 import javafx.application.Platform;
 import javafx.concurrent.Task;
@@ -23,29 +22,6 @@ import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 
 public class LoginController implements Initializable {
-
-    private final class TaskExtension extends Task<Object> {
-        private final AppMessage message;
-        Boolean isError;
-        CountDownLatch latch;
-
-        private TaskExtension(AppMessage message, Boolean isError, CountDownLatch latch) {
-            this.message = message;
-            this.isError = isError;
-            this.latch = latch;
-        }
-
-        @Override
-        protected Void call() {
-            try {
-                OutputWorker.output.writeObject(message);
-            } catch (IOException e) {
-                isError = true;
-                this.latch.countDown();
-            }
-            return null;
-        }
-    }
 
     public Button loginButton;
     public TextField usernameField;
@@ -69,11 +45,11 @@ public class LoginController implements Initializable {
                     String password = passwordField.getText();
 
                     data = new LoginData(username, password, "");
-                    message = new AppMessage("LoginAttempt", data, 0);
+                    message = new AppMessage(EnumActions.LOGIN_ATTEMPT, data, 0, "pending");
                     CountDownLatch latch = new CountDownLatch(1);
                     Boolean isError = false;
                     System.out.println("Adding task to OutputWorker queue");
-                    OutputWorker.queue.put(new TaskExtension(message, isError, latch));
+                    OutputWorker.queue.put(new WriteTask(message, isError, latch));
                     System.out.println("Creatin response");
                     Response responseResult = new Response(latch, message);
                     System.out.println("Adding responseResult to ResponseList");
@@ -86,20 +62,29 @@ public class LoginController implements Initializable {
                     }
                     System.out.println("Getting response data");
                     AppMessage response = responseResult.getResponseData();
-                    System.out.println("parsing stuff");
-                    LoginData responseData = (LoginData) response.getDataMessage();
+                    System.out.println("parsing stuff2");
+                    try {
 
-                    if ("ok".equals(responseData.getMessage())) {
-                        System.out.println("YESS");
-                        Platform.runLater(() -> {
-                            try {
-                                App.setRoot("mainView");
-                            } catch (IOException e) {
-                                // TODO Auto-generated catch block
-                                e.printStackTrace();
-                            }
-                        });
+                        User responseData = (User) response.getDataMessage();
+                        if ("ok".equals(response.getStatus())) {
+                            System.out.println("YESS");
+                            Platform.runLater(() -> {
+                                try {
+                                    App.setUserSession(responseData);
+                                    App.setRoot("mainView");
+                                } catch (IOException e) {
+                                    // TODO Auto-generated catch block
+                                    e.printStackTrace();
+                                }
+                            });
+                        } else {
+                            System.out.println("Nah");
+                            AlertBox.display("Error", "Algo ha salido mal");
+                        }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
                     }
+                    System.out.println("Checking");
 
                 } catch (InterruptedException e) {
                     // TODO Auto-generated catch block

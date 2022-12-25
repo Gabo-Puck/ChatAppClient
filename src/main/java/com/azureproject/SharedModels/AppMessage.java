@@ -2,27 +2,38 @@ package com.azureproject.SharedModels;
 
 import java.io.Serializable;
 
+import com.azureproject.SharedEnum.EnumActions;
 import com.azureproject.SharedInterfaces.AppDataMessage;
 
 public class AppMessage implements Serializable {
-    private String action;
+    private static final long serialVersionUID = 8799656478674716638L;
+    private EnumActions action;
     private AppDataMessage dataMessage;
     private int id;
 
-    private static final long serialVersionUID = 8799656478674716638L;
+    private String status;
+
+    public AppMessage() {
+    }
+
+    public AppMessage(EnumActions action, AppDataMessage dataMessage, int id, String status) {
+        this.action = action;
+        this.dataMessage = dataMessage;
+        this.id = id;
+        this.status = status;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
 
     @Override
     public String toString() {
         return "AppMessage [action=" + action + ", dataMessage=" + dataMessage + ", id=" + id + "]";
-    }
-
-    public AppMessage(String action, AppDataMessage dataMessage, int id) {
-        this.action = action;
-        this.dataMessage = dataMessage;
-        this.id = id;
-    }
-
-    public AppMessage() {
     }
 
     public AppDataMessage getDataMessage() {
@@ -33,11 +44,11 @@ public class AppMessage implements Serializable {
         this.dataMessage = dataMessage;
     }
 
-    public String getAction() {
+    public EnumActions getAction() {
         return this.action;
     }
 
-    public void setAction(String action) {
+    public void setAction(EnumActions action) {
         this.action = action;
     }
 
@@ -48,5 +59,4 @@ public class AppMessage implements Serializable {
     public void setId(int id) {
         this.id = id;
     }
-
 }
